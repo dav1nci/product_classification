@@ -1,0 +1,11 @@
+jupyter
+transformers
+scikit-learn
+matplotlib
+mlflow==2.18.0
+boto3==1.35.63
+cryptography==43.0.3
+pandas
+accelerate
+
+

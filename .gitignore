@@ -58,6 +58,10 @@ cover/
 *.mo
 *.pot
 
+# MLFlow
+mlruns/
+checkpoint*/
+
 # Django stuff:
 *.log
 local_settings.py
