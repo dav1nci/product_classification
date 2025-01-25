@@ -1,0 +1,16 @@
+sqlalchemy
+sqlalchemy-utils
+fastapi
+pandas
+numpy
+uvicorn
+mysql-connector-python
+pymysql
+cryptography
+pydantic-settings
+mlflow==2.18.0
+minio
+transformers
+accelerate
+boto3==1.35.63
+
