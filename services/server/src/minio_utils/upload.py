@@ -15,18 +15,16 @@ def object_exists(client, bucket_name, object_name):
         return True
 
     except S3Error as err:
-        print(f"Error occurred: {err}")
+        # print(f"Error occurred: {err}")
         return False
     except Exception as e:
         print(f"Non defined exception {e}")
         return False
 
 def upload_data_to_bucket(client, bucket_name, dest_file, data):
-    source_file_bytes = json.dumps(data).encode('utf-8')
+    source_file_bytes = data.to_csv(index=False).encode('utf-8')
     source_file_stream = io.BytesIO(source_file_bytes)
-    # The destination bucket and filename on the MinIO server
-    # bucket_name = "ai-bucket"
-    # destination_file = "job/2/report.json"
+
     bucket_exists_or_create(client, bucket_name)
     if not object_exists(client, bucket_name, dest_file):
         client.put_object(

@@ -34,8 +34,8 @@ def create_auto_train_table(engine):
         dataset_path VARCHAR(255) NOT NULL,
         run_id VARCHAR(255) ,              
         best_checkpoint VARCHAR(255),              
-        f1 INT ,                           
-        min_f1 INT ,                       
+        f1 FLOAT ,                           
+        min_f1 FLOAT ,                       
         weights_s3 VARCHAR(255),    
         status VARCHAR(50) NOT NULL
     );
@@ -44,6 +44,44 @@ def create_auto_train_table(engine):
     with engine.connect() as conn:
         conn.execute(text(query))
         conn.commit()
+
+
+def create_model_metrics_table(engine):
+    query = """
+    CREATE TABLE model_metrics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        associated_job_id CHAR(36) NOT NULL, 
+        timestamp DATETIME NOT NULL,          
+        model_name VARCHAR(100),              
+        f1 FLOAT ,                           
+        min_f1 FLOAT ,                  
+        total_predictions INT,        
+        latency_avg_ms FLOAT,
+        FOREIGN KEY (associated_job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+    );
+    """
+    with engine.connect() as conn:
+        conn.execute(text(query))
+        conn.commit()
+
+
+# def create_inference_jobs_table(engine):
+#     query = """
+#         CREATE TABLE inference_jobs (
+#             id CHAR(36) NOT NULL PRIMARY KEY,
+#             timestamp DATETIME NOT NULL,
+#             model_name VARCHAR(100),
+#             accuracy FLOAT,
+#             precision FLOAT,
+#             recall FLOAT,
+#             f1_score FLOAT,
+#             total_predictions INT,
+#             latency_avg_ms FLOAT
+#         );
+#         """
+#     with engine.connect() as conn:
+#         conn.execute(text(query))
+#         conn.commit()
 
 
 def table_exists(engine, table_name):
@@ -90,6 +128,12 @@ def init_db(settings: Settings):
         create_auto_train_table(engine)
     else:
         print("table auto_training exists")
+
+    if not table_exists(engine, 'model_metrics'):
+        print("table model_metrics didn't exist, creating new one")
+        create_model_metrics_table(engine)
+    else:
+        print("table model_metrics exists")
 
     return engine, SessionLocal
 

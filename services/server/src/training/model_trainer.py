@@ -1,30 +1,16 @@
 from internal.comm_protocol_types import TrainingConfig
 from minio_utils.download import download_data_to_file
 from minio_utils.connection import minio_client
-import pandas
-from sklearn.model_selection import train_test_split
 from training.data_loader import TextClassificationDataset
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from datetime import datetime
 from training.utils import GetActiveRunCallback, get_best_step, parse_s3_objectname
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, f1_score
-
-
 import pandas
-import matplotlib.pyplot as plt
-
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 from sklearn.model_selection import train_test_split
-from torch.utils.data import Dataset, DataLoader
-import torch
 import os
 from datetime import datetime
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, f1_score
-
-import mlflow
-from transformers import TrainerCallback
+from sklearn.metrics import precision_recall_fscore_support, f1_score
 from mlflow.tracking import MlflowClient
-from mlflow.exceptions import MlflowException
+
 
 
 class AutomaticModelTrainer(object):
@@ -41,6 +27,10 @@ class AutomaticModelTrainer(object):
         }
         self.model_name_base = 'bert-base-uncased'
         self.db_record_id = db_record_id
+
+        self.data_train=None
+        self.tokenizer = None
+        self.run_id = None
 
 
     def init_trainer(self):
@@ -108,10 +98,6 @@ class AutomaticModelTrainer(object):
     def finalize_training(self):
         client = MlflowClient()
         self.best_step_info = get_best_step(client, self.run_id, self.training_config.best_model_metric)
-
-        # self.checkpoint_name = find_best_checkpoint_path(client,self.run_id, self.training_config.best_model_metric)
-        # log to db
-
 
 
     def retrieve_data(self):

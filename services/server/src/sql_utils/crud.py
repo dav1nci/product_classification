@@ -5,19 +5,21 @@ from sqlalchemy.exc import OperationalError
 
 from fastapi import HTTPException
 
-
-def job_exists_in_db(engine, job_id):
-    q = f"select job_id from jobs where job_id = {job_id};"
-    with engine.connect() as conn:
-        cur = conn.execute(text(q))
-        if cur.rowcount == 0:
-            return False
-        return True
-
-        # conn.rollback()
-
-
 def add_inference_job(session, job_id, start_time, job_status, input_file_s3):
+    """
+    job_id CHAR(36) NOT NULL PRIMARY KEY, -- UUIDv4 stored as a CHAR(36)
+        start_time DATETIME NOT NULL,
+        end_time DATETIME,
+        job_status VARCHAR(255) NOT NULL,
+        input_file_s3 TEXT,
+        output_file_s3 TEXT
+    :param session:
+    :param job_id:
+    :param start_time:
+    :param job_status:
+    :param input_file_s3:
+    :return:
+    """
     q = f"""
     INSERT INTO
         jobs (job_id, start_time, job_status, input_file_s3)
@@ -35,6 +37,23 @@ def add_inference_job(session, job_id, start_time, job_status, input_file_s3):
     except OperationalError as e:
         print("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
+
+
+def finalize_inference_job_in_db(session, job_id, end_time, output_file_s3):
+    q = """
+        UPDATE jobs SET end_time = :end_time, output_file_s3 = :output_file_s3, job_status = 'FINISHED'
+        WHERE job_id = :job_id;
+        """
+    try:
+        session.execute(text(q), {'end_time': end_time,
+                                  'output_file_s3': output_file_s3,
+                                  'job_id': job_id
+                                  })
+        session.commit()
+    except OperationalError as e:
+        print("Database connection lost:", e)
+        raise HTTPException(status_code=500, detail="Database connection error")
+
 
 # INSERT INTO auto_training (training_date, dataset_hash, status) VALUES (:training_date, :dataset_hash, :status) RETURNING id;
 def add_training_job(session, train_job_id, training_date, dataset_hash, dataset_path, status):
@@ -87,65 +106,70 @@ def finalize_training_in_db(session, train_job_id, mlflow_run_id, best_checkpoin
                                   'min_f1': min_f1,
                                   'weights_s3': weights_s3
                                   })
+        session.commit()
     except OperationalError as e:
         print("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 
 
-def get_job_status(engine, job_id):
+def fetch_recent_model(session):
     q = """
-    SELECT job_status FROM jobs WHERE job_id = :job_id;
+    SELECT run_id, best_checkpoint 
+    FROM auto_training 
+    WHERE status = 'FINISHED' 
+    ORDER BY training_date 
+    DESC 
+    LIMIT 1;
     """
-    with engine.connect() as conn:
-        result = conn.execute(text(q), {'job_id': job_id})
-        job_status = result.one_or_none()
-        if job_status is None:
-            raise HTTPException(status_code=404, detail=f"Status for job {job_id} was not found in database")
-        # print(f"JOB STATUS: {job_status}")
-        return job_status[0]
+    try:
+        result = session.execute(text(q), {}).all()
+        # result = session.all()
+        if result:
+            print("Most recent 'FINISHED' row:", result)
+            return result
+        else:
+            print("No rows with status 'FINISHED' found.")
+            return None
+
+    except OperationalError as err:
+        print("Error:", err)
 
 
-def update_job_status(engine, job_id, job_status):
-    q = """
-    UPDATE jobs SET job_status = :job_status WHERE job_id = :job_id;
+def report_model_metrics_to_db(session, associated_job_id, timestamp, model_name,
+                               f1, min_f1, total_predictions, latency_avg_ms):
     """
-    with engine.connect() as conn:
-        result = conn.execute(text(q), {'job_status': job_status,
-                                        'job_id': job_id
-                                        })
-        conn.commit()
+            CREATE TABLE model_metrics (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            associated_job_id
+            timestamp DATETIME NOT NULL,
+            model_name VARCHAR(100),
+            f1 FLOAT ,
+            min_f1 FLOAT ,
+            total_predictions INT,
+            latency_avg_ms FLOAT
+        );
+            :return:
+            """
+    q = f"""
+        INSERT INTO
+            model_metrics (associated_job_id, timestamp, model_name, f1, min_f1, total_predictions, latency_avg_ms)
+        VALUES
+            (:associated_job_id, :timestamp, :model_name, :f1, :min_f1, :total_predictions, :latency_avg_ms);
+        """
+    try:
+        session.execute(text(q), {'associated_job_id': associated_job_id,
+                                  'timestamp': timestamp,
+                                  'model_name': model_name,
+                                  'f1': f1,
+                                  'min_f1': min_f1,
+                                  'total_predictions': total_predictions,
+                                  'latency_avg_ms': latency_avg_ms,
+                                  })
 
+        # generated_id = session.fetchone()[0]
+        session.commit()
 
-def update_job_progress(engine, job_id, job_progress):
-    q = """
-    UPDATE jobs SET job_progress = :job_progress WHERE job_id = :job_id;
-    """
-    with engine.connect() as conn:
-        result = conn.execute(text(q), {'job_progress': job_progress,
-                                        'job_id': job_id
-                                        })
-        conn.commit()
+    except OperationalError as e:
+        print("Database connection lost:", e)
+        raise HTTPException(status_code=500, detail="Database connection error")
 
-
-def update_output_file_s3(engine, job_id, minio_url):
-    q = """
-    UPDATE jobs SET s3_blob = :s3_blob WHERE job_id = :job_id;
-    """
-    with engine.connect() as conn:
-        result = conn.execute(text(q), {'s3_blob': minio_url,
-                                        'job_id': job_id
-                                        })
-        conn.commit()
-
-
-def get_minio_objectpath(engine, job_id):
-    q = """
-    SELECT s3_blob FROM jobs WHERE job_id = :job_id;
-    """
-    with engine.connect() as conn:
-        result = conn.execute(text(q), {'job_id': job_id})
-        s3_blob = result.one_or_none()
-        if s3_blob is None:
-            raise HTTPException(status_code=404, detail=f"s3_blob for job {job_id} was not found in database")
-        # print(f"JOB STATUS: {job_status}")
-        return s3_blob[0]

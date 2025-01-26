@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Union
 
-class InputForInference(BaseModel):
+class InferenceConfig(BaseModel):
     input_file_s3: str
 
 class TrainingConfig(BaseModel):

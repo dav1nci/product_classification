@@ -1,12 +1,14 @@
 import pytz
 from fastapi import APIRouter, BackgroundTasks
-from internal.comm_protocol_types import InputForInference
+from internal.comm_protocol_types import InferenceConfig
+from serving.inference_pipeline import InferencePipeline
+from serving.inference_workers import regular_inference_worker
 from sql_utils.crud import add_inference_job
 from sqlalchemy.orm import Session
 from fastapi import FastAPI, HTTPException, Depends
 from uuid import uuid4
 from datetime import datetime
-from dependencies import get_db_session
+from dependencies import get_db_session, model_loader
 
 router = APIRouter(
     prefix="/v1",
@@ -16,18 +18,22 @@ router = APIRouter(
 )
 
 @router.post("/predict/csv")
-async def predict_csv(input_for_inference: InputForInference,
+async def predict_csv(inference_config: InferenceConfig,
                       bg_tasks: BackgroundTasks,
-                      db: Session = Depends(get_db_session)):
+                      db: Session = Depends(get_db_session),
+                      tokenizer_and_model=Depends(model_loader.get_model)):
 
     job_id = uuid4()
-    add_inference_job(db, str(job_id), datetime.now(pytz.utc), "STATUS_PENDING", input_for_inference.input_file_s3)
-    # args = process_job_description(query)
-    # print(f"Args: {args}")
-    # bg_tasks.add_task(worker, input_for_inference)
+    add_inference_job(db, str(job_id), datetime.now(pytz.utc), "STATUS_PENDING", inference_config.input_file_s3)
+
+    inference_pipeline = InferencePipeline(tokenizer_and_model[0], tokenizer_and_model[1], tokenizer_and_model[2],
+                                           job_id, inference_config)
+    bg_tasks.add_task(regular_inference_worker, inference_pipeline)
 
     return {
         "job_id": job_id,
         "status": "STATUS_PENDING"
     }
+
+
 
