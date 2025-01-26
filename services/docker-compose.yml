@@ -91,6 +91,23 @@ services:
             - driver: nvidia
               device_ids: [ '0' ]
               capabilities: [ gpu ]
+  
+
+  grafana:
+    image: grafana/grafana-enterprise:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # - GF_SERVER_ROOT_URL=http://my.grafana.server/
+     - GF_INSTALL_PLUGINS=grafana-clock-panel
+    user: '0'
+    ports:
+     - '3000:3000'
+    networks:
+      - ai_network
+    volumes:
+      - ./grafana_storage/:/var/lib/grafana/
+        #- grafana-data:/var/lib/grafana
 
 networks:
   ai_network:
