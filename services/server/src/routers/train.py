@@ -1,12 +1,11 @@
 from fastapi import APIRouter, BackgroundTasks
-
 from dependencies import get_db_session
 from internal.comm_protocol_types import TrainingConfig
 from sql_utils.crud import add_training_job
 from training.train_workers import regular_train_worker
 from training.model_trainer import AutomaticModelTrainer
 from sqlalchemy.orm import Session
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends
 from datetime import datetime
 import pytz
 from uuid import uuid4

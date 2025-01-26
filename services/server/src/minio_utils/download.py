@@ -9,7 +9,7 @@ def download_data_from_bucket(client, bucket_name, obj_name):
         response.close()
         response.release_conn()
 
-    # return response
+
 
 def download_data_to_file(client, bucket_name, obj_path):
     try:

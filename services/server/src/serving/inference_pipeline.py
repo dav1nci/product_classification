@@ -1,38 +1,8 @@
-# from fastapi import FastAPI, Depends
-# from transformers import AutoModelForCausalLM, AutoTokenizer
-# import torch
-#
-# app = FastAPI()
-#
-# class ModelLoader:
-#     def __init__(self):
-#         self.model = None
-#         self.tokenizer = None
-#
-#     def get_model(self):
-#         if self.model is None or self.tokenizer is None:
-#             print("Loading model for the first time...")
-#             self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
-#             self.model = AutoModelForCausalLM.from_pretrained("gpt2").to("cuda" if torch.cuda.is_available() else "cpu")
-#         return self.model, self.tokenizer
-#
-# # Global singleton instance
-# model_loader = ModelLoader()
-#
-# @app.post("/predict/")
-# def predict(input_text: str, model_and_tokenizer=Depends(model_loader.get_model)):
-#     model, tokenizer = model_and_tokenizer
-#     inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
-#     outputs = model.generate(**inputs, max_length=50)
-#     return {"generated_text": tokenizer.decode(outputs[0], skip_special_tokens=True)}
-#
-#
 import time
 from datetime import datetime
 import pandas
 import pytz
 from sklearn.metrics import f1_score
-
 from dependencies import get_db_session
 from internal.comm_protocol_types import InferenceConfig
 from minio_utils.download import download_data_to_file
@@ -43,9 +13,10 @@ from training.utils import parse_s3_objectname
 from minio_utils.connection import minio_client
 
 
-
 class InferencePipeline(object):
     def __init__(self, tokenizer, model, model_name, db_job_id, inference_config: InferenceConfig):
+        self.human_feedback_handler = None
+        self.inference_time = None
         self.data_inference = None
         self.db_job_id = db_job_id
         self.tokenizer = tokenizer
@@ -137,11 +108,14 @@ class InferencePipeline(object):
         if self.human_feedback_present():
             self.handle_human_feedback()
         self.finalize()
-#
+
 
 
 class HumanFeedbackHandler(object):
     def __init__(self, parent_inference_pipeline: InferencePipeline):
+        self.f1_weighted = None
+        self.f1_per_class = None
+        self.filtered_data = None
         self.pip = parent_inference_pipeline
 
     def validate_data(self):
@@ -165,12 +139,6 @@ class HumanFeedbackHandler(object):
                     f"Column '{column}' has wrong dtype. Expected: {expected_dtype}, Got: {self.filtered_data[column].dtype}")
         print("All columns have the correct datatypes.")
 
-        # Check for NaN values in the required columns
-        # for column in required_columns:
-        #     if self.pip.data_inference[column].isnull().any():
-        #         raise ValueError(f"Column '{column}' contains NaN values.")
-        # print("No NaN values in the required columns.")
-
         # Check if unique values in the target column intersect with the required target values
         if target_column in self.filtered_data.columns:
             unique_values = set(self.filtered_data[target_column].unique())
@@ -187,27 +155,8 @@ class HumanFeedbackHandler(object):
         upload_data_to_bucket(minio_client, 'dataset', f"train/human_verified_subset_from_job_{self.pip.db_job_id}.csv",
                               self.filtered_data[['product_description', 'HUMAN_VERIFIED_Category']])
 
-        # db_session_generator = get_db_session()
-        # db_session = next(get_db_session())
-        #
-        # finalize_inference_job_in_db(db_session, self.db_job_id, datetime.now(pytz.utc),
-        #                              f"s3://inference/{str(self.db_job_id)}/predictions.csv")
-        # db_session_generator.close()
 
     def calculate_model_metrics(self):
-        """
-        CREATE TABLE model_metrics (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        associated_job_id
-        timestamp DATETIME NOT NULL,
-        model_name VARCHAR(100),
-        f1 FLOAT ,
-        min_f1 FLOAT ,
-        total_predictions INT,
-        latency_avg_ms FLOAT
-    );
-        :return:
-        """
         self.filtered_data['human_category_index'] = self.filtered_data.apply(lambda x: self.pip.labelmap[x['HUMAN_VERIFIED_Category']], axis=1)
 
         y_true = self.filtered_data['human_category_index']
@@ -220,9 +169,6 @@ class HumanFeedbackHandler(object):
     def report_model_health_metrics_to_db(self):
         db_session_generator = get_db_session()
         db_session = next(get_db_session())
-        #
-        # finalize_inference_job_in_db(db_session, self.db_job_id, datetime.now(pytz.utc),
-        #                              f"s3://inference/{str(self.db_job_id)}/predictions.csv")
         report_model_metrics_to_db(db_session, self.pip.db_job_id, datetime.now(pytz.utc), self.pip.model_name,
                                    self.f1_weighted, min(self.f1_per_class), self.pip.data_inference.shape[0],
                                    self.pip.inference_time * 1000 / self.pip.data_inference.shape[0])

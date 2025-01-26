@@ -1,13 +1,7 @@
-import os
-
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from config import Settings
-
-
-
-
 
 def create_jobs_table(engine):
     query = """
@@ -65,25 +59,6 @@ def create_model_metrics_table(engine):
         conn.commit()
 
 
-# def create_inference_jobs_table(engine):
-#     query = """
-#         CREATE TABLE inference_jobs (
-#             id CHAR(36) NOT NULL PRIMARY KEY,
-#             timestamp DATETIME NOT NULL,
-#             model_name VARCHAR(100),
-#             accuracy FLOAT,
-#             precision FLOAT,
-#             recall FLOAT,
-#             f1_score FLOAT,
-#             total_predictions INT,
-#             latency_avg_ms FLOAT
-#         );
-#         """
-#     with engine.connect() as conn:
-#         conn.execute(text(query))
-#         conn.commit()
-
-
 def table_exists(engine, table_name):
     inspector = inspect(engine)
     tables = inspector.get_table_names()
@@ -137,7 +112,3 @@ def init_db(settings: Settings):
 
     return engine, SessionLocal
 
-
-
-if __name__ == "__main__":
-    pass

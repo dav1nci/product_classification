@@ -5,7 +5,7 @@ from serving.inference_pipeline import InferencePipeline
 from serving.inference_workers import regular_inference_worker
 from sql_utils.crud import add_inference_job
 from sqlalchemy.orm import Session
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends
 from uuid import uuid4
 from datetime import datetime
 from dependencies import get_db_session, model_loader

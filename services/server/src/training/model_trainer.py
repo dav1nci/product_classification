@@ -15,6 +15,8 @@ from mlflow.tracking import MlflowClient
 
 class AutomaticModelTrainer(object):
     def __init__(self, training_config: TrainingConfig, db_record_id):
+        self.best_step_info = None
+        self.train_dataset = None
         self.training_config = training_config
 
         # TODO make it configurable!
@@ -142,8 +144,8 @@ class AutomaticModelTrainer(object):
     def preprocess_data(self):
         self.data_train['category_index'] = self.data_train.apply(lambda x: self.labelmap[x['Category']], axis=1)
 
-        # TODO DEBUG! comment this out!
-        self.data_train = self.data_train.sample(500)
+        # # TODO DEBUG! comment this out!
+        # self.data_train = self.data_train.sample(500)
 
         train_texts, val_texts, train_labels, val_labels = train_test_split(
             self.data_train['product_description'], self.data_train['category_index'], test_size=0.2, random_state=13

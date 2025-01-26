@@ -1,6 +1,4 @@
-import mlflow
 import torch
-
 from sql_utils.crud import fetch_recent_model
 import os
 from mlflow.tracking import MlflowClient
