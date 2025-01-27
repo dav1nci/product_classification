@@ -1,5 +1,6 @@
 import io
 from minio.error import S3Error
+from dependencies import logger
 
 
 def bucket_exists_or_create(client, bucket_name):
@@ -14,10 +15,10 @@ def object_exists(client, bucket_name, object_name):
         return True
 
     except S3Error as err:
-        # print(f"Error occurred: {err}")
+        # logger.error(f"Error occurred: {err}")
         return False
     except Exception as e:
-        print(f"Non defined exception {e}")
+        logger.error(f"Non defined exception {e}")
         return False
 
 def upload_data_to_bucket(client, bucket_name, dest_file, data):
@@ -35,7 +36,7 @@ def upload_data_to_bucket(client, bucket_name, dest_file, data):
 def upload_file_to_bucket(client, bucket_name, dest_file, fname_local):
     bucket_exists_or_create(client, bucket_name)
     if not object_exists(client, bucket_name, dest_file):
-        print(f"Creating new object {bucket_name}:{dest_file}")
+        logger.info(f"Creating new object {bucket_name}:{dest_file}")
         client.fput_object(bucket_name, dest_file, fname_local)
     else:
         raise ValueError(f"Object {bucket_name}:{dest_file} already exists in s3")

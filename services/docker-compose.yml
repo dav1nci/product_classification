@@ -82,6 +82,7 @@ services:
     volumes:
       - ./server/:/server/
       - ../data/:/data/
+      - ./log/:/log/
     networks:
       - ai_network
     deploy:

@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from config import Settings
+from dependencies import logger
+
 
 def create_jobs_table(engine):
     query = """
@@ -78,12 +80,12 @@ def get_database_connection(user, password, host, port, database_name):
         SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
         with engine.connect() as connection:
-            print(f"Connected to the database '{database_name}' successfully.")
+            logger.info(f"Connected to the database '{database_name}' successfully.")
 
         return engine, SessionLocal
 
     except SQLAlchemyError as e:
-        print(f"Failed to connect to the database. Error: {e}")
+        logger.error(f"Failed to connect to the database. Error: {e}")
         return None
 
 
@@ -93,22 +95,22 @@ def init_db(settings: Settings):
     engine, SessionLocal = get_database_connection(settings.MYSQL_JOB_DB_USER, settings.MYSQL_JOB_DB_PASSWORD, 'db',
                                      settings.MYSQL_PORT, settings.MYSQL_JOB_DB)
     if not table_exists(engine, 'jobs'):
-        print("table jobs didn't exist, creating new one")
+        logger.info("table jobs didn't exist, creating new one")
         create_jobs_table(engine)
-    else:
-        print("table jobs exists")
+    # else:
+    #     logger.info("table jobs exists")
 
     if not table_exists(engine, 'auto_training'):
-        print("table auto_training didn't exist, creating new one")
+        logger.info("table auto_training didn't exist, creating new one")
         create_auto_train_table(engine)
-    else:
-        print("table auto_training exists")
+    # else:
+    #     logger.info("table auto_training exists")
 
     if not table_exists(engine, 'model_metrics'):
-        print("table model_metrics didn't exist, creating new one")
+        logger.info("table model_metrics didn't exist, creating new one")
         create_model_metrics_table(engine)
-    else:
-        print("table model_metrics exists")
+    # else:
+    #     logger.info("table model_metrics exists")
 
     return engine, SessionLocal
 

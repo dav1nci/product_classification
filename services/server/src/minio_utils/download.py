@@ -1,4 +1,5 @@
 from minio.error import S3Error
+from dependencies import logger
 
 def download_data_from_bucket(client, bucket_name, obj_name):
     try:
@@ -15,7 +16,7 @@ def download_data_to_file(client, bucket_name, obj_path):
     try:
         out_fname = f"/tmp/{obj_path.split('/')[-1]}"
         client.fget_object(bucket_name, obj_path, out_fname)
-        print(f"File '{bucket_name}:{obj_path}' downloaded successfully to '{out_fname}'.")
+        logger.info(f"File '{bucket_name}:{obj_path}' downloaded successfully to '{out_fname}'.")
         return out_fname
     except S3Error as err:
-        print(f"Error downloading file: {err}")
+        logger.error(f"Error downloading file: {err}")

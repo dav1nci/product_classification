@@ -1,8 +1,8 @@
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-
-
 from fastapi import HTTPException
+from dependencies import logger
+
 
 def add_inference_job(session, job_id, start_time, job_status, input_file_s3):
     q = f"""
@@ -20,7 +20,7 @@ def add_inference_job(session, job_id, start_time, job_status, input_file_s3):
         session.commit()
 
     except OperationalError as e:
-        print("Database connection lost:", e)
+        logger.error("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -36,7 +36,7 @@ def finalize_inference_job_in_db(session, job_id, end_time, output_file_s3):
                                   })
         session.commit()
     except OperationalError as e:
-        print("Database connection lost:", e)
+        logger.error("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -60,7 +60,7 @@ def add_training_job(session, train_job_id, training_date, dataset_hash, dataset
         session.commit()
 
     except OperationalError as e:
-        print("Database connection lost:", e)
+        logger.error("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -80,7 +80,7 @@ def finalize_training_in_db(session, train_job_id, mlflow_run_id, best_checkpoin
                                   })
         session.commit()
     except OperationalError as e:
-        print("Database connection lost:", e)
+        logger.error("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -97,14 +97,12 @@ def fetch_recent_model(session):
         result = session.execute(text(q), {}).all()
 
         if result:
-            print("Most recent 'FINISHED' row:", result)
             return result
         else:
-            print("No rows with status 'FINISHED' found.")
             return None
 
     except OperationalError as err:
-        print("Error:", err)
+        logger.error("Error:", err)
 
 
 def report_model_metrics_to_db(session, associated_job_id, timestamp, model_name,
@@ -128,6 +126,6 @@ def report_model_metrics_to_db(session, associated_job_id, timestamp, model_name
         session.commit()
 
     except OperationalError as e:
-        print("Database connection lost:", e)
+        logger.error("Database connection lost:", e)
         raise HTTPException(status_code=500, detail="Database connection error")
 

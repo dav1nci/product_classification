@@ -1,6 +1,6 @@
 from sql_utils.crud import finalize_training_in_db
 from training.model_trainer import AutomaticModelTrainer
-from dependencies import get_db_session
+from dependencies import get_db_session, logger
 
 
 def regular_train_worker(trainer: AutomaticModelTrainer):
@@ -19,6 +19,6 @@ def regular_train_worker(trainer: AutomaticModelTrainer):
         db_session_generator.close()
 
     except Exception as e:
-        print(f"Error during training process: {e}")
+        logger.error(f"Error during training process: {e}")
 
 

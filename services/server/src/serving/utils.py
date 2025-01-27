@@ -22,9 +22,6 @@ def process_in_batches(tokenizer, model, elements, batch_size):
     predictions_combined = list()
     for i in range(0, len(elements), batch_size):
         batch = elements[i:i + batch_size]
-        # Process the current batch
-        # print(f"Processing batch: {batch}")
-        # Add your processing logic here
         batch_prediction = predict_on_batch(tokenizer, model, batch)
         predictions_combined.extend(batch_prediction.cpu().numpy().astype(np.int32).tolist())
 

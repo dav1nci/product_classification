@@ -7,10 +7,8 @@ class GetActiveRunCallback(TrainerCallback):
         if not mlflow.active_run():
             mlflow.start_run()
         self.run_id = mlflow.active_run().info.run_id
-        print(f"MLflow RUN_ID at start of training: {self.run_id}")
 
     def on_train_end(self, args, state, control, **kwargs):
-        print(f"MLflow RUN_ID at end of training: {self.run_id}")
         mlflow.end_run()
 
 

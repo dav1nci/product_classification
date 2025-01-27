@@ -4,6 +4,8 @@ import os
 from mlflow.tracking import MlflowClient
 from mlflow.exceptions import MlflowException
 from transformers import BertTokenizer, BertForSequenceClassification
+from dependencies import logger
+from fastapi import HTTPException
 
 
 class ModelLoader:
@@ -21,6 +23,7 @@ class ModelLoader:
 
     def new_model_available(self):
         from dependencies import get_db_session
+
         db_session_generator = get_db_session()
         db_session = next(get_db_session())
 
@@ -30,11 +33,12 @@ class ModelLoader:
         if result:
             run_id, best_checkpoint = result[0]
         else:
-            raise NotImplementedError("no model available for serving")
+            raise HTTPException(status_code=404, detail="No model available for serving")
 
         if run_id == self.mlflow_run_id and best_checkpoint == self.best_checkpoint:
             return False
         else:
+            logger.info(f"New model available: {run_id}:{best_checkpoint}")
             self.mlflow_run_id = run_id
             self.best_checkpoint = best_checkpoint
             return True
@@ -51,7 +55,7 @@ class ModelLoader:
         try:
             client.download_artifacts(self.mlflow_run_id, self.best_checkpoint, artifacts_download_dir)
         except MlflowException as e:
-            print(f"Exception occured: {e}")
+            logger.error(f"Exception occured: {e}")
 
             # s3://mlflow/1/9acee285129b429ba9243103cac82ff4/artifacts/checkpoint-6750
 

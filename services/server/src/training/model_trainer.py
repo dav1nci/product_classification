@@ -10,11 +10,15 @@ import os
 from datetime import datetime
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from mlflow.tracking import MlflowClient
+from dependencies import logger
+import torch
+import gc
 
 
 
 class AutomaticModelTrainer(object):
     def __init__(self, training_config: TrainingConfig, db_record_id):
+        self.val_dataset = None
         self.best_step_info = None
         self.train_dataset = None
         self.training_config = training_config
@@ -36,6 +40,7 @@ class AutomaticModelTrainer(object):
 
 
     def init_trainer(self):
+        logger.info(f"[init_trainer]:{self.db_record_id} started")
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name_base)
 
     def setup_mlflow_logging(self):
@@ -46,6 +51,7 @@ class AutomaticModelTrainer(object):
         os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://minio:9000"
 
     def train_model(self):
+        logger.info(f"[train_model]:{self.db_record_id} started")
         self.setup_mlflow_logging()
 
         model = BertForSequenceClassification.from_pretrained(self.model_name_base, num_labels=5)
@@ -94,21 +100,29 @@ class AutomaticModelTrainer(object):
         trainer.train()
 
         self.run_id = active_run_id_callback.run_id
+        # Free resources
+        del model
+        del trainer
+        torch.cuda.empty_cache()  # Clear GPU memory
+        gc.collect()  # Collect unused Python objects
 
 
 
     def finalize_training(self):
+        logger.info(f"[finalize_training]:{self.db_record_id} started")
         client = MlflowClient()
         self.best_step_info = get_best_step(client, self.run_id, self.training_config.best_model_metric)
 
 
     def retrieve_data(self):
+        logger.info(f"[retrieve_data]:{self.db_record_id} started")
         bucket_name, s3_file_object_path = parse_s3_objectname(self.training_config.train_file_s3)
         out_fname = download_data_to_file(minio_client, bucket_name, s3_file_object_path)
         self.data_train = pandas.read_csv(out_fname)
 
 
     def validate_data(self):
+        logger.info(f"[validate_data]:{self.db_record_id} started")
         required_columns = ['product_description', 'Category']
         expected_dtypes = {'product_description': 'object', 'Category': 'object'}
         required_target_values = set(self.labelmap.keys())
@@ -118,37 +132,38 @@ class AutomaticModelTrainer(object):
         missing_columns = [col for col in required_columns if col not in self.data_train.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
-        print("All required columns are present.")
+        logger.info("All required columns are present.")
 
         # Check if datatypes match the expected types
         for column, expected_dtype in expected_dtypes.items():
             if column in self.data_train.columns and not pandas.api.types.is_dtype_equal(self.data_train[column].dtype, expected_dtype):
                 raise ValueError(
                     f"Column '{column}' has wrong dtype. Expected: {expected_dtype}, Got: {self.data_train[column].dtype}")
-        print("All columns have the correct datatypes.")
+        logger.info("All columns have the correct datatypes.")
 
         # Check for NaN values in the required columns
         for column in required_columns:
             if self.data_train[column].isnull().any():
                 raise ValueError(f"Column '{column}' contains NaN values.")
-        print("No NaN values in the required columns.")
+        logger.info("No NaN values in the required columns.")
 
         # Check if unique values in the target column intersect with the required target values
         if target_column in self.data_train.columns:
             unique_values = set(self.data_train[target_column].unique())
             if not unique_values.issubset(required_target_values):
                 raise ValueError(f"Unique values in column '{target_column}' do not match the required target values.")
-        print(f"Unique values in column '{target_column}' are valid.")
+        logger.info(f"Unique values in column '{target_column}' are valid.")
 
 
     def preprocess_data(self):
+        logger.info(f"[preprocess_data]:{self.db_record_id} started")
         self.data_train['category_index'] = self.data_train.apply(lambda x: self.labelmap[x['Category']], axis=1)
 
         # # TODO DEBUG! comment this out!
         # self.data_train = self.data_train.sample(500)
 
         train_texts, val_texts, train_labels, val_labels = train_test_split(
-            self.data_train['product_description'], self.data_train['category_index'], test_size=0.2, random_state=13
+            self.data_train['product_description'], self.data_train['category_index'], test_size=0.2, random_state=42
         )
 
         self.train_dataset = TextClassificationDataset(train_texts.tolist(), train_labels.tolist(), self.tokenizer)

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 from uuid import uuid4
 from datetime import datetime
-from dependencies import get_db_session, model_loader
+from dependencies import get_db_session, model_loader, logger
 
 router = APIRouter(
     prefix="/v1",
