@@ -20,13 +20,35 @@ mysql> select *  from auto_training;
 
 ### Part 3. Model Monitoring and Feedback Integration
 
-Grafana dashboard sql for f1:
-```sql
-SELECT timestamp, f1 FROM model_metrics ORDER BY timestamp;
+I used grafana for model monitoring, that is included in this solution as separate service. I was looking for the ways to fully automate grafana setup, it can be automated, but there's one thing that can't be automated, which is generating access token. In order to setup visualizations you need 2 steps:
+1. Going to grafana UI and setting up the API token
+2. Running `init_grafana.sh` script wit 
+
+#### 3.1 Generating token in grafana UI
+
+1. Go to http://localhost:3000/login
+2. Log in using username `admin` and password `admin` credentials
+3. Press `Skip` in the following dialog
+4. On the left panel go to `Administration` -> `Users and access` -> `Service accounts` and click on `Add service account`
+5. In the `Display name` field type in `test`, and in `Role` choose `Admin` and click `Create`
+6. Click `Add service account token` button, type in some name in `Display Name` field, and then `Generate Token` in the pop up dialogue
+7. Click `Copy to clickboard` and close the pop up window.
+
+#### 3.2 Run `init_grafana.sh`
+
+1. In console, and execute 
+```bash
+docker exec -ti services-server-1 bash
+/server/init_grafana.sh TOKEN_ID
 ```
-Grafana dashboard sql for f1_min:
-```sql
-SELECT timestamp, min_f1 FROM model_metrics ORDER BY timestamp;
+
+Check http://localhost:3000/dashboards, there has to be `Model Monitoring Dashboard` created, and if you click on it you can see visualization of `f1` and `min_f1` metrics over time
+
+### Part 4. Containerizing
+
+```bash
+cd services
+docker compose up --build
 ```
 
 ## Further improvements
