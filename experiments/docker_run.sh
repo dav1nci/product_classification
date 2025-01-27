@@ -1,8 +1,7 @@
 STR_TO_RUN="
 docker run -dt --name llm \
 	-v $PWD/notebooks/:/notebooks/ \
-	-v $PWD/data/:/data/ \
-	-v $PWD/src/:/src/ \
+	-v $PWD/../data/:/data/ \
 
 	-p 127.0.0.1:8108:8888 \
 
