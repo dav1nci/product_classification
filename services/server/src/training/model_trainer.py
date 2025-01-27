@@ -1,5 +1,5 @@
-from internal.comm_protocol_types import TrainingConfig
-from minio_utils.download import download_data_to_file
+from internal.comm_protocol_types import TrainingConfig, BaseTrainingConfig, HFTrainingConfig
+from minio_utils.download import download_data_to_file, download_files_to_dir
 from minio_utils.connection import minio_client
 from training.data_loader import TextClassificationDataset
 from training.utils import GetActiveRunCallback, get_best_step, parse_s3_objectname
@@ -14,10 +14,41 @@ from dependencies import logger
 import torch
 import gc
 
+class BaseModelTrainer(object):
+    def __init__(self, db_record_id):
+        # self.training_config = training_config
+        self.db_record_id = db_record_id
+
+    def init_trainer(self):
+        pass
+
+    def setup_mlflow_logging(self):
+        pass
+
+    def train_model(self):
+        pass
+
+    def finalize_training(self):
+        pass
+
+    def retrieve_data(self):
+        pass
+
+    def validate_data(self):
+        pass
+
+    def preprocess_data(self):
+        pass
+
+    def run(self):
+        pass
 
 
-class AutomaticModelTrainer(object):
-    def __init__(self, training_config: TrainingConfig, db_record_id):
+
+
+class AutomaticModelTrainer(BaseModelTrainer):
+    def __init__(self, training_config: BaseTrainingConfig, db_record_id):
+        super().__init__(db_record_id)
         self.val_dataset = None
         self.best_step_info = None
         self.train_dataset = None
@@ -106,20 +137,16 @@ class AutomaticModelTrainer(object):
         torch.cuda.empty_cache()  # Clear GPU memory
         gc.collect()  # Collect unused Python objects
 
-
-
     def finalize_training(self):
         logger.info(f"[finalize_training]:{self.db_record_id} started")
         client = MlflowClient()
         self.best_step_info = get_best_step(client, self.run_id, self.training_config.best_model_metric)
-
 
     def retrieve_data(self):
         logger.info(f"[retrieve_data]:{self.db_record_id} started")
         bucket_name, s3_file_object_path = parse_s3_objectname(self.training_config.train_file_s3)
         out_fname = download_data_to_file(minio_client, bucket_name, s3_file_object_path)
         self.data_train = pandas.read_csv(out_fname)
-
 
     def validate_data(self):
         logger.info(f"[validate_data]:{self.db_record_id} started")
@@ -154,7 +181,6 @@ class AutomaticModelTrainer(object):
                 raise ValueError(f"Unique values in column '{target_column}' do not match the required target values.")
         logger.info(f"Unique values in column '{target_column}' are valid.")
 
-
     def preprocess_data(self):
         logger.info(f"[preprocess_data]:{self.db_record_id} started")
         self.data_train['category_index'] = self.data_train.apply(lambda x: self.labelmap[x['Category']], axis=1)
@@ -169,8 +195,6 @@ class AutomaticModelTrainer(object):
         self.train_dataset = TextClassificationDataset(train_texts.tolist(), train_labels.tolist(), self.tokenizer)
         self.val_dataset = TextClassificationDataset(val_texts.tolist(), val_labels.tolist(), self.tokenizer)
 
-
-
     def run(self):
         self.init_trainer()
         self.retrieve_data()
@@ -178,3 +202,26 @@ class AutomaticModelTrainer(object):
         self.preprocess_data()
         self.train_model()
         self.finalize_training()
+
+
+class HFAutomaticModelTrainer(AutomaticModelTrainer):
+    def __init__(self, training_config: BaseTrainingConfig, db_record_id):
+        super().__init__(training_config, db_record_id)
+
+
+    def retrieve_data(self):
+        logger.info(f"[retrieve_data]:{self.db_record_id} started")
+        bucket_name, s3_dir_path = parse_s3_objectname(self.training_config.train_dir_s3)
+        csv_local_fnames = download_files_to_dir(minio_client, bucket_name, s3_dir_path)
+
+        # Read and concatenate CSV files into a single DataFrame
+        dataframes = []
+
+        for csv_file in csv_local_fnames:
+            df_tmp = pandas.read_csv(csv_file)
+            if 'HUMAN_VERIFIED_Category' in df_tmp.columns:
+                df_tmp.rename(columns={'HUMAN_VERIFIED_Category': 'Category'}, inplace=True)
+            dataframes.append(df_tmp)
+
+
+        self.data_train = pandas.concat(dataframes, ignore_index=True)

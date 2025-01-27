@@ -1,7 +1,11 @@
-# Approach overview
+## Approach overview
 
 This repository contains an implementation of products classification task. This solution consists of :
 * minio ()
+
+
+### Part 1. Model Training and Fine-Tuning
+
 
 
 ```sql
@@ -14,5 +18,19 @@ mysql> select *  from auto_training;
 
 ```
 
+### Part 3. Model Monitoring and Feedback Integration
 
+Grafana dashboard sql for f1:
+```sql
+SELECT timestamp, f1 FROM model_metrics ORDER BY timestamp;
+```
+Grafana dashboard sql for f1_min:
+```sql
+SELECT timestamp, min_f1 FROM model_metrics ORDER BY timestamp;
+```
 
+## Further improvements
+
+- [ ] Better handle class imbalance. Class weights implemented, but didn't do much of a difference. Test oversampling
+- [ ] Consider more advanced pipeline management frameworks like Airflow for more complicated pipelines management
+- [ ] Better model handling. Add support for models versioning and adding to model registry at MLFlow
