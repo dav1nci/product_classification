@@ -1,8 +1,11 @@
 ## Approach overview
 
 This repository contains an implementation of products classification task. This solution consists of :
-* minio ()
-* 
+* REST API web server
+* mlflow for experiment tracking
+* mysql as a database for storing inference and retraining jobs metadata, also realtime model metrics
+* grafana as a model monitoring tool
+* minio as a local s3 bucket storage
 
 ## Installation
 
