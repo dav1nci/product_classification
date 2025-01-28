@@ -92,6 +92,7 @@ services:
       - ./wait-for-it.sh:/tmp/wait-for-it.sh
     networks:
       - ai_network
+    restart: always
     deploy:
       resources:
         reservations:
