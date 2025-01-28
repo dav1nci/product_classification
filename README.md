@@ -64,7 +64,7 @@ The overall approach of a solution is that each time inference endpoint is trigg
 
 The same with model retraining, the job class for model retraining defined [here](https://github.com/dav1nci/product_classification/blob/master/services/server/src/training/model_trainer.py#L17)
 
-The inference predictions are stored in local s3(minio). Inference job information is stored at mysql database, that is also part of docker compose services. 
+The inference predictions are stored in local s3(minio). Inference job information is stored at mysql database, that is also part of docker compose services. If input file for inference has `HUMAN_VERIFIED_Category` inside, the f1 is being calculated beetween model predictions and human labels, and is reported to `model_metrics`, and then visualized in grafana (a tool for model monitoring).
 
 When training endpoint is triggered, metrics and model weights are logged to docker compose instance of MLFlow. 
 
